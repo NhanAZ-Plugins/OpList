@@ -1,12 +1,12 @@
 ---
 name: OpList
-version: 2.0.3
+version: 2.0.4
 main: NhanAZ\OpList\Main
 api: 5.0.0
 src-namespace-prefix: NhanAZ\OpList
 
 website: https://github.com/NhanAZ
-description: Show list of operators
+description: Show online and offline server operators by page
 author: NhanAZ
 
 commands:

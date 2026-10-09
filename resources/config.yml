@@ -1,8 +1,8 @@
 ---
 # {page} : Number of pages players see when using /oplist
-# {maxPage} : Maximum arguments the user can enter in /oplist [Arguments]
-# {totalOpsOnline} : The number of operators is online in the server
-opListTag: "&6- List of operators &f[&b{page} &6of &b{maxPage}&f] &f[&9Onlines&f: &a{totalOpsOnline}&f] &6-"
+# {maxPage}: Total number of pages
+# {totalOpsOnline}: Number of operators online
+opListTag: "&6- List of operators &f[&b{page} &6of &b{maxPage}&f] &f[&9Online&f: &a{totalOpsOnline}&f] &6-"
 
 # {numericalOrder} : The ordinal number of the operator
 # {opName} : Operator name
@@ -21,10 +21,10 @@ pageNotFound: "&e» §cPage not found!"
 noOperator: "§e» §cNo operator!"
 
 # Last line of a page
-# You can disable this by below:
+# Set this to an empty string to hide the last line.
 # endPage: ""
 endPage: "&6==========================================="
 
-# Number of operators in a page
+# Positive number of operators on each page
 perPage: 5
 ...

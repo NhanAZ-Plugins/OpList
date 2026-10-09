@@ -4,95 +4,73 @@ declare(strict_types=1);
 
 namespace NhanAZ\OpList;
 
-use pocketmine\utils\Config;
-use pocketmine\utils\TextFormat;
-use pocketmine\plugin\PluginBase;
 use pocketmine\command\CommandSender;
+use pocketmine\Server;
+use pocketmine\utils\TextFormat;
 
-class OpManager {
-
-	public function __construct(private PluginBase $plugin) {
+final class OpManager {
+	public function __construct(private Server $server, private OpListSettings $settings) {
 	}
 
-	private function getConfig(): Config {
-		return $this->plugin->getConfig();
-	}
-
-	private function handleOpListTag(int $page, int $maxPage): string {
-		$replacements = [
-			"{page}" => $page,
-			"{maxPage}" => $maxPage,
-			"{totalOpsOnline}" => $this->getOpsOnline(),
-		];
-		$opListTag = str_replace(
-			array_keys($replacements),
-			$replacements,
-			$this->getConfig()->get("opListTag", "&6- List of operators &f[&b{page} &6of &b{maxPage}&f] &f[&9Onlines&f: &a{totalOpsOnline}&f] &6-")
-		);
-		return $opListTag;
-	}
-
-	private function getPerPage(): int {
-		return $this->getConfig()->get("perPage", 5);
-	}
-
-	private function handleStatusTag($opName): string {
-		$opName = strval($opName);
-		if ($this->plugin->getServer()->getPlayerByPrefix($opName)) {
-			$status = $this->getConfig()->get("onlineStatusTag", "§aOnline");
-		} else {
-			$status = $this->getConfig()->get("offlineStatusTag", "§cOffline");
-		}
-		return $status;
-	}
-
+	/** @return list<string> */
 	private function getOpList(): array {
-		return array_keys($this->plugin->getServer()->getOps()->getAll());
-	}
-
-	private function getOpsOnline(): int {
-		$opsOnline = 0;
-		foreach (array_keys($this->plugin->getServer()->getOps()->getAll()) as $opName) {
-			if ($this->plugin->getServer()->getPlayerByPrefix(strval(($opName)))) {
-				$opsOnline++;
+		$names = [];
+		foreach (array_keys($this->server->getOps()->getAll()) as $name) {
+			if (is_string($name)) {
+				$names[] = $name;
 			}
 		}
-		return $opsOnline;
+		return $names;
 	}
 
-	public function sendOpList(CommandSender $sender, $page): void {
+	private function isOnline(string $name): bool {
+		return $this->server->getPlayerExact($name) !== null;
+	}
+
+	/** @param list<string> $ops */
+	private function getOpsOnline(array $ops): int {
+		$count = 0;
+		foreach ($ops as $name) {
+			if ($this->isOnline($name)) {
+				++$count;
+			}
+		}
+		return $count;
+	}
+
+	public function sendOpList(CommandSender $sender, string $pageArgument): void {
 		$ops = $this->getOpList();
-		$page = intval($page);
-		if (empty($this->getOpList())) {
-			$sender->sendMessage(TextFormat::colorize($this->getConfig()->get("noOperator", "§e» §cNo operator!")));
+		if ($ops === []) {
+			$sender->sendMessage(TextFormat::colorize($this->settings->noOperator));
 			return;
 		}
-		$maxPage = intval(ceil(count($ops) / $this->getPerPage()));
-		if ($page < 1 || $page > $maxPage) {
-			$sender->sendMessage(TextFormat::colorize( $this->getConfig()->get("pageNotFound", "§e»§c Page not found!")));
+
+		$maxPage = intdiv(count($ops) - 1, $this->settings->perPage) + 1;
+		$page = Pagination::parsePage($pageArgument, $maxPage);
+		if ($page === null) {
+			$sender->sendMessage(TextFormat::colorize($this->settings->pageNotFound));
 			return;
 		}
-		$start = ($page - 1) * $this->getPerPage();
-		$end = $start + $this->getPerPage();
-		$sender->sendMessage(TextFormat::colorize($this->handleOpListTag($page, $maxPage)));
-		for ($i = $start; $i < $end; $i++) {
-			if (isset($ops[$i])) {
-				$replacements = [
-					"{numericalOrder}" => $i + 1,
-					"{opName}" => $ops[$i],
-					"{onlineStatus}" => $this->handleStatusTag($ops[$i]),
-				];
-				$opListFormat = str_replace(
-					array_keys($replacements),
-					$replacements,
-					$this->getConfig()->get("opListFormat", "&e» &a{numericalOrder}. &9{opName} &f[{onlineStatus}&f]")
-				);
-				$sender->sendMessage(TextFormat::colorize($opListFormat));
-			}
+
+		$header = strtr($this->settings->opListTag, [
+			"{page}" => (string) $page,
+			"{maxPage}" => (string) $maxPage,
+			"{totalOpsOnline}" => (string) $this->getOpsOnline($ops),
+		]);
+		$sender->sendMessage(TextFormat::colorize($header));
+
+		$start = ($page - 1) * $this->settings->perPage;
+		foreach (array_slice($ops, $start, $this->settings->perPage) as $offset => $name) {
+			$line = strtr($this->settings->opListFormat, [
+				"{numericalOrder}" => (string) ($start + $offset + 1),
+				"{opName}" => $name,
+				"{onlineStatus}" => $this->isOnline($name) ? $this->settings->onlineStatusTag : $this->settings->offlineStatusTag,
+			]);
+			$sender->sendMessage(TextFormat::colorize($line));
 		}
-		$endPage = $this->getConfig()->get("endPage", "&6===========================================");
-		if ($endPage !== "") {
-			$sender->sendMessage(TextFormat::colorize($endPage));
+
+		if ($this->settings->endPage !== "") {
+			$sender->sendMessage(TextFormat::colorize($this->settings->endPage));
 		}
 	}
 }

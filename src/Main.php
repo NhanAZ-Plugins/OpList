@@ -4,23 +4,30 @@ declare(strict_types=1);
 
 namespace NhanAZ\OpList;
 
-use pocketmine\event\Listener;
-use pocketmine\plugin\PluginBase;
+use InvalidArgumentException;
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
-use NhanAZ\OpList\OpManager;
+use pocketmine\plugin\PluginBase;
 
-class Main extends PluginBase implements Listener {
+final class Main extends PluginBase {
+	private ?OpListSettings $settings = null;
 
 	protected function onEnable(): void {
-		$this->getServer()->getPluginManager()->registerEvents($this, $this);
 		$this->saveDefaultConfig();
+		try {
+			$this->settings = OpListSettings::fromConfig($this->getConfig());
+		} catch (InvalidArgumentException $error) {
+			$this->getLogger()->error($error->getMessage());
+		}
 	}
 
 	public function onCommand(CommandSender $sender, Command $command, string $label, array $args): bool {
 		if ($command->getName() === "oplist") {
-			(new OpManager($this))->sendOpList($sender, $args[0] ?? 1);
-			return true;
+			if ($this->settings === null) {
+				$sender->sendMessage("OpList configuration is invalid. Check the server log.");
+				return true;
+			}
+			(new OpManager($this->getServer(), $this->settings))->sendOpList($sender, $args[0] ?? "1");
 		}
 		return true;
 	}
